@@ -1,0 +1,178 @@
+package np.edu.nast.payroll.Payroll.service.impl;
+
+import lombok.RequiredArgsConstructor;
+import np.edu.nast.payroll.Payroll.entity.*;
+import np.edu.nast.payroll.Payroll.repository.*;
+import np.edu.nast.payroll.Payroll.service.EmployeeLeaveService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class EmployeeLeaveServiceImpl implements EmployeeLeaveService {
+
+    private final EmployeeLeaveRepository employeeLeaveRepo;
+    private final UserRepository userRepo;
+    private final EmployeeRepository employeeRepo;
+    private final LeaveTypeRepository leaveTypeRepo;
+    private final LeaveBalanceRepository leaveBalanceRepo;
+
+    @Override
+    public List<EmployeeLeave> getAllLeaves() {
+        return employeeLeaveRepo.findAll();
+    }
+
+    // NEW: Implementation of the Filter logic
+    @Override
+    public List<EmployeeLeave> getFilteredLeaves(Integer year, Integer month, String status, String search) {
+        String searchTerm = (search == null) ? "" : search;
+        String statusFilter = (status == null) ? "All" : status;
+        return employeeLeaveRepo.findFilteredLeaves(year, month, statusFilter, searchTerm);
+    }
+
+    @Override
+    @Transactional
+    public EmployeeLeave updateLeaveStatus(Integer id, String status, Integer adminId, String rejectionReason) {
+        EmployeeLeave leave = employeeLeaveRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Leave record not found with ID: " + id));
+
+        String oldStatus = leave.getStatus();
+
+        if ("Approved".equalsIgnoreCase(status) && !"Approved".equalsIgnoreCase(oldStatus)) {
+            updateActualBalance(leave, true);
+        }
+        else if ("Rejected".equalsIgnoreCase(status) && "Approved".equalsIgnoreCase(oldStatus)) {
+            updateActualBalance(leave, false);
+        }
+
+        leave.setStatus(status);
+
+        Employee adminEmployee = employeeRepo.findById(adminId)
+                .orElseThrow(() -> new IllegalArgumentException("Admin User not found with ID: " + adminId));
+
+        User adminUser = adminEmployee.getUser();
+        if (adminUser == null) {
+            throw new RuntimeException("Admin Employee is not linked to a User account.");
+        }
+
+        leave.setApprovedBy(adminUser);
+        leave.setApprovedAt(LocalDateTime.now());
+
+        if ("Rejected".equalsIgnoreCase(status)) {
+            leave.setRejectionReason(rejectionReason);
+        } else {
+            leave.setRejectionReason(null);
+        }
+
+        return employeeLeaveRepo.save(leave);
+    }
+
+    private void updateActualBalance(EmployeeLeave leave, boolean isDeducting) {
+        int year = leave.getStartDate().getYear();
+        LeaveBalance balance = leaveBalanceRepo.findByEmployeeAndLeaveTypeAndYear(
+                leave.getEmployee(),
+                leave.getLeaveType(),
+                year
+        ).orElseThrow(() -> new RuntimeException("Leave balance not initialized for " +
+                leave.getEmployee().getEmpId() + " for year " + year));
+
+        double totalDays = (double) leave.getTotalDays();
+
+        if (isDeducting) {
+            if (balance.getCurrentBalanceDays() < totalDays) {
+                throw new RuntimeException("Insufficient leave balance. Available: " + balance.getCurrentBalanceDays());
+            }
+            balance.setCurrentBalanceDays(balance.getCurrentBalanceDays() - totalDays);
+        } else {
+            balance.setCurrentBalanceDays(balance.getCurrentBalanceDays() + totalDays);
+        }
+        leaveBalanceRepo.save(balance);
+    }
+
+    @Override
+    @Transactional
+    public EmployeeLeave requestLeave(EmployeeLeave leave) {
+        if (leave.getEmployee() == null || leave.getEmployee().getEmpId() == null) {
+            throw new IllegalArgumentException("Employee ID is required");
+        }
+        Employee employee = employeeRepo.findById(leave.getEmployee().getEmpId())
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
+        leave.setEmployee(employee);
+
+        if (leave.getLeaveType() == null || leave.getLeaveType().getLeaveTypeId() == null) {
+            throw new IllegalArgumentException("Leave Type ID is required");
+        }
+        LeaveType leaveType = leaveTypeRepo.findById(leave.getLeaveType().getLeaveTypeId())
+                .orElseThrow(() -> new IllegalArgumentException("Leave Type not found"));
+        leave.setLeaveType(leaveType);
+
+        calculateAndSetTotalDays(leave);
+
+        if (leave.getStatus() == null || leave.getStatus().isEmpty()) {
+            leave.setStatus("Pending");
+        }
+
+        return employeeLeaveRepo.save(leave);
+    }
+
+    @Override
+    public EmployeeLeave getLeaveById(Integer id) {
+        return employeeLeaveRepo.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<EmployeeLeave> getLeavesByEmployee(Integer empId) {
+        Employee employee = employeeRepo.findById(empId)
+                .orElseThrow(() -> new IllegalArgumentException("Employee not found with ID: " + empId));
+        return employeeLeaveRepo.findAllByEmployee(employee);
+    }
+
+    @Override
+    public void deleteLeave(Integer id) {
+        EmployeeLeave leave = employeeLeaveRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Leave not found with ID: " + id));
+        employeeLeaveRepo.delete(leave);
+    }
+
+    @Override
+    @Transactional
+    public EmployeeLeave updateLeave(Integer id, EmployeeLeave leave) {
+        EmployeeLeave existingLeave = employeeLeaveRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Leave not found with ID: " + id));
+
+        existingLeave.setStartDate(leave.getStartDate());
+        existingLeave.setEndDate(leave.getEndDate());
+        calculateAndSetTotalDays(existingLeave);
+
+        if (leave.getEmployee() != null && leave.getEmployee().getEmpId() != null) {
+            Employee employee = employeeRepo.findById(leave.getEmployee().getEmpId())
+                    .orElseThrow(() -> new IllegalArgumentException("Employee not found"));
+            existingLeave.setEmployee(employee);
+        }
+
+        if (leave.getLeaveType() != null && leave.getLeaveType().getLeaveTypeId() != null) {
+            LeaveType leaveType = leaveTypeRepo.findById(leave.getLeaveType().getLeaveTypeId())
+                    .orElseThrow(() -> new IllegalArgumentException("Leave Type not found"));
+            existingLeave.setLeaveType(leaveType);
+        }
+
+        existingLeave.setReason(leave.getReason());
+        existingLeave.setStatus(leave.getStatus());
+
+        return employeeLeaveRepo.save(existingLeave);
+    }
+
+    private void calculateAndSetTotalDays(EmployeeLeave leave) {
+        if (leave.getStartDate() != null && leave.getEndDate() != null) {
+            long days = ChronoUnit.DAYS.between(leave.getStartDate(), leave.getEndDate()) + 1;
+            if (days <= 0) {
+                throw new IllegalArgumentException("End date must be after start date");
+            }
+            leave.setTotalDays((int) days);
+        }
+    }
+}

@@ -1,0 +1,30 @@
+# --- IDE and System Files ---
+.idea/
+.vscode/
+*.swp
+*.log
+.DS_Store
+Thumbs.db
+
+# --- Frontend (React/Vite/Node) ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/npm-debug.log*
+
+# --- Backend (Spring Boot/Java) ---
+backend/target/
+backend/bin/
+backend/*.jar
+backend/*.war
+backend/.metadata/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.mvn/wrapper/
+
+# --- Database / OS ---
+*.sql
+*.sqlite

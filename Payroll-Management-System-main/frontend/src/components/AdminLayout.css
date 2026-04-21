@@ -1,0 +1,140 @@
+:root {
+  --admin-sidebar-width: 260px;
+  --admin-footer-bg: #1cc88a; /* Keeping your green theme */
+}
+
+.admin-layout-wrapper {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f8f9fc;
+}
+
+/* Sidebar Fixes */
+.admin-sidebar {
+  width: var(--admin-sidebar-width);
+  background-color: #1e293b;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  position: fixed; /* Keeps sidebar from moving */
+  height: 100vh;
+  z-index: 100;
+}
+
+.sidebar-header {
+  padding: 1.5rem;
+  font-weight: bold;
+  font-size: 1.2rem;
+  border-bottom: 1px solid #334155;
+}
+
+.user-welcome {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-top: 5px;
+  font-weight: normal;
+}
+
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-nav::-webkit-scrollbar { width: 0px; }
+
+.menu-list { flex: 1; padding: 10px 0; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 1.5rem;
+  text-decoration: none;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  transition: 0.2s;
+}
+
+.nav-item:hover, .nav-item.active {
+  background: #334155;
+  color: white;
+}
+
+.nav-item.active {
+  border-left: 4px solid #3b82f6;
+}
+
+/* Sidebar Actions */
+.sidebar-actions-group {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-top: 1px solid #334155;
+}
+
+.role-switcher-container label {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.role-select, .signout-btn, .back-nav-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.role-select { background: #334155; color: white; border: 1px solid #475569; outline: none; }
+.signout-btn { background: #ef4444; color: white; border: none; font-weight: 600; gap: 10px; }
+.signout-btn:hover { background: #dc2626; }
+.back-nav-btn { background: transparent; color: #3b82f6; border: 1px solid #3b82f6; margin-bottom: 5px; }
+
+/* --- THE FLEX WRAPPER SOLUTION --- */
+.admin-main-wrapper {
+  flex: 1;
+  margin-left: var(--admin-sidebar-width); /* Space for fixed sidebar */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.admin-main {
+  flex: 1; /* Pushes the footer down */
+}
+
+.admin-content {
+  padding: 2rem;
+}
+
+/* Full Width Sticky Footer */
+.admin-footer {
+  background-color: var(--admin-footer-bg);
+  color: #fff;
+  text-align: center;
+  padding: 1rem 0;
+  font-weight: 600;
+  width: 100%;
+  box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+  margin-top: auto; /* Ensures it stays at bottom of content */
+}
+
+.loading-screen {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  color: #1e293b;
+}
